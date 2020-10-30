@@ -2,16 +2,16 @@ import 'package:famedlysdk/famedlysdk.dart';
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(FamedlySdkExampleApp());
+  runApp(TalkDevTestApp());
 }
 
-class FamedlySdkExampleApp extends StatelessWidget {
-  static Client client = Client('Famedly SDK Example Client', debug: true);
+class TalkDevTestApp extends StatelessWidget {
+  static Client client = Client('Talk Dev Client');
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Famedly SDK Example App',
+      title: 'Talk Dev',
       home: LoginView(),
     );
   }
@@ -33,13 +33,9 @@ class _LoginViewState extends State<LoginView> {
     setState(() => _isLoading = true);
     setState(() => _error = null);
     try {
-      if (await FamedlySdkExampleApp.client
-              .checkServer(_homeserverController.text) ==
-          false) {
-        throw (Exception('Server not supported'));
-      }
+      await TalkDevTestApp.client.checkHomeserver(_homeserverController.text);
       // ignore: unrelated_type_equality_checks
-      if (await FamedlySdkExampleApp.client.login(
+      if (await TalkDevTestApp.client.login(
             user: _usernameController.text,
             password: _passwordController.text,
           ) ==
@@ -111,24 +107,12 @@ class ChatListView extends StatefulWidget {
 }
 
 class _ChatListViewState extends State<ChatListView> {
-  _ChatListViewState() {}
+  _ChatListViewState();
 
   TextEditingController userName = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
-    // FamedlySdkExampleApp.client.onEvent.stream.listen((event) {
-    //   if (event.eventType == EventTypes.RoomCreate) {
-    //     var roomId = event.roomID;
-    //     FamedlySdkExampleApp.client.joinRoom(roomId);
-    //   }
-    // });
-    // // FamedlySdkExampleApp.client.onEvent.stream.listen((event) {
-    // //   if (event.eventType == EventTypes.RoomJoinRules) {
-    // //     var roomId = event.roomID;
-    // //     FamedlySdkExampleApp.client.joinRoom(roomId);
-    // //   }
-    // // });
     return Scaffold(
       appBar: AppBar(
         title: Text('Chats'),
@@ -136,14 +120,14 @@ class _ChatListViewState extends State<ChatListView> {
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.add),
         onPressed: () {
-          FamedlySdkExampleApp.client.createRoom(
+          TalkDevTestApp.client.createRoom(
               name: 'newroom',
               isDirect: true,
               preset: CreateRoomPreset.private_chat,
               topic: 'A private chat for webrtc test.',
               invite: ['@anurag:talk-dev.vyah.com']);
-          // FamedlySdkExampleApp.client.inviteToRoom(roomId, '');
-          FamedlySdkExampleApp.client.rooms.forEach((element) {
+          // TalkDevTestApp.client.inviteToRoom(roomId, '');
+          TalkDevTestApp.client.rooms.forEach((element) {
             print(element.name);
           });
         },
@@ -154,32 +138,25 @@ class _ChatListViewState extends State<ChatListView> {
             controller: userName,
             onEditingComplete: () async {
               var userlist =
-                  await FamedlySdkExampleApp.client.searchUser(userName.text);
+                  await TalkDevTestApp.client.searchUser(userName.text);
               print(userlist.results.first.displayname);
             },
           ),
           Flexible(
             child: StreamBuilder(
-              stream: FamedlySdkExampleApp.client.onSync.stream,
+              stream: TalkDevTestApp.client.onSync.stream,
               builder: (c, s) => ListView.builder(
-                itemCount: FamedlySdkExampleApp.client.rooms.length,
+                itemCount: TalkDevTestApp.client.rooms.length,
                 itemBuilder: (BuildContext context, int i) {
-                  final room = FamedlySdkExampleApp.client.rooms[i];
+                  final room = TalkDevTestApp.client.rooms[i];
                   if (room.membership == Membership.invite ||
                       room.membership == Membership.join) {
-                    FamedlySdkExampleApp.client.joinRoom(room.id);
+                    TalkDevTestApp.client.joinRoom(room.id);
                   }
                   return ListTile(
                     title:
                         Text(room.displayname + ' (${room.notificationCount})'),
                     subtitle: Text(room.lastMessage ?? '', maxLines: 1),
-                    // leading: CircleAvatar(
-                    //   backgroundImage: NetworkImage(room.avatar.getThumbnail(
-                    //     FamedlySdkExampleApp.client,
-                    //     width: 64,
-                    //     height: 64,
-                    //   )),
-                    // ),
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => ChatView(room: room),
@@ -277,7 +254,7 @@ class _ChatViewState extends State<ChatView> {
                                     ? NetworkImage(
                                         timeline.events[i].sender?.avatarUrl
                                             ?.getThumbnail(
-                                          FamedlySdkExampleApp.client,
+                                          TalkDevTestApp.client,
                                           width: 64,
                                           height: 64,
                                         ),
