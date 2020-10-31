@@ -1,3 +1,4 @@
+import 'package:example/pages/callpage.dart';
 import 'package:famedlysdk/famedlysdk.dart';
 import 'package:flutter/material.dart';
 
@@ -16,6 +17,18 @@ class _ChatListViewState extends State<ChatListView> {
 
   @override
   Widget build(BuildContext context) {
+    TalkDevTestApp.client.onCallInvite.stream.listen((event) {
+      if (event.senderId != TalkDevTestApp.client.userID) {
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => VideoCallPage(
+                      room: event.room,
+                      type: 'CallAnswer',
+                      session: event.content['offer'],
+                    )));
+      }
+    });
     return Scaffold(
       appBar: AppBar(
         title: Text('Chats'),

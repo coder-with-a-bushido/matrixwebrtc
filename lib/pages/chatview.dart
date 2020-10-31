@@ -1,3 +1,4 @@
+import 'package:example/pages/callpage.dart';
 import 'package:famedlysdk/famedlysdk.dart';
 import 'package:flutter/material.dart';
 
@@ -37,11 +38,6 @@ class _ChatViewState extends State<ChatView> {
 
   @override
   Widget build(BuildContext context) {
-    TalkDevTestApp.client.onCallInvite.stream.listen((event) {
-      if (event.senderId != TalkDevTestApp.client.userID) {
-        print('${event.content['offer']}same id');
-      }
-    });
     return Scaffold(
       appBar: AppBar(
         title: StreamBuilder<Object>(
@@ -53,8 +49,14 @@ class _ChatViewState extends State<ChatView> {
           IconButton(
             icon: Icon(Icons.video_call),
             onPressed: () {
-              widget.room
-                  .inviteToCall('${widget.room.name}call', 30000, "TestSdp");
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => VideoCallPage(
+                            key: ValueKey(widget.room.id),
+                            room: widget.room,
+                            type: 'CallInvite',
+                          )));
             },
           )
         ],
