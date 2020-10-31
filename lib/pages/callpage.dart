@@ -93,7 +93,9 @@ class _VideoCallPageState extends State<VideoCallPage> {
         await navigator.mediaDevices.getUserMedia(mediaConstraints);
     print(stream.id);
     _localStream = stream;
-    _localRenderer.srcObject = _localStream;
+    setState(() {
+      _localRenderer.srcObject = _localStream;
+    });
 
     //return stream;
   }
