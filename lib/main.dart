@@ -1,3 +1,4 @@
+import 'package:example/pages/callpage.dart';
 import 'package:famedlysdk/famedlysdk.dart';
 import 'package:flutter/material.dart';
 
@@ -12,9 +13,7 @@ class TalkDevTestApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Talk Dev',
-      home: LoginView(),
-    );
+    return MaterialApp(title: 'Talk Dev', home: VideoCallPage() //LoginView(),
+        );
   }
 }

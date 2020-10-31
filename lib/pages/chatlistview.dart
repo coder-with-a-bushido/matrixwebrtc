@@ -20,21 +20,21 @@ class _ChatListViewState extends State<ChatListView> {
       appBar: AppBar(
         title: Text('Chats'),
       ),
-      floatingActionButton: FloatingActionButton(
-        child: Icon(Icons.add),
-        onPressed: () {
-          TalkDevTestApp.client.createRoom(
-              name: 'newroom',
-              isDirect: true,
-              preset: CreateRoomPreset.private_chat,
-              topic: 'A private chat for webrtc test.',
-              invite: ['@anurag:talk-dev.vyah.com']);
-          // TalkDevTestApp.client.inviteToRoom(roomId, '');
-          TalkDevTestApp.client.rooms.forEach((element) {
-            print(element.name);
-          });
-        },
-      ),
+      // floatingActionButton: FloatingActionButton(
+      //   child: Icon(Icons.add),
+      //   onPressed: () {
+      //     TalkDevTestApp.client.createRoom(
+      //         name: 'newroom',
+      //         isDirect: true,
+      //         preset: CreateRoomPreset.private_chat,
+      //         topic: 'A private chat for webrtc test.',
+      //         invite: ['@anurag:talk-dev.vyah.com']);
+      //     // TalkDevTestApp.client.inviteToRoom(roomId, '');
+      //     TalkDevTestApp.client.rooms.forEach((element) {
+      //       print(element.name);
+      //     });
+      //   },
+      // ),
       body: Column(
         children: [
           TextField(
