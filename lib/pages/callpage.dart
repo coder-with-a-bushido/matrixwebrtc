@@ -16,11 +16,13 @@ class VideoCallPage extends StatefulWidget {
 }
 
 class _VideoCallPageState extends State<VideoCallPage> {
+  bool _mute = false;
   bool _answered = false;
   RTCPeerConnection _peerConnection;
   MediaStream _localStream;
   RTCVideoRenderer _localRenderer = new RTCVideoRenderer();
   RTCVideoRenderer _remoteRenderer = new RTCVideoRenderer();
+  var _remoteCandidates = [];
   final _sdpConstraints = {
     "mandatory": {
       "OfferToReceiveAudio": true,
@@ -74,8 +76,10 @@ class _VideoCallPageState extends State<VideoCallPage> {
     //   "optional": [],
     // };
 
-    RTCPeerConnection pc =
-        await createPeerConnection(configuration, _sdpConstraints);
+    RTCPeerConnection pc = await createPeerConnection(configuration, {
+      'mandatory': {},
+      'optional': [],
+    });
     pc.addStream(_localStream);
     pc.onIceCandidate = (e) {
       if (e.candidate != null) {
@@ -107,7 +111,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
 
   _getUserMedia() async {
     final Map<String, dynamic> mediaConstraints = {
-      'audio': false,
+      'audio': true,
       'video': {
         'facingMode': 'user',
       },
@@ -130,7 +134,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
     _localStream.dispose();
     _localRenderer.dispose();
     _remoteRenderer.dispose();
-    _peerConnection.dispose();
+    //_peerConnection.dispose();
     super.dispose();
   }
 
@@ -147,16 +151,25 @@ class _VideoCallPageState extends State<VideoCallPage> {
     await _peerConnection.setLocalDescription(description);
   }
 
-  void _createAnswer() async {
-    RTCSessionDescription description =
+  void _createAnswer(session) async {
+    RTCSessionDescription remotedescription = new RTCSessionDescription(
+        session['sdp'].toString(), session['type'].toString());
+
+    print(session['sdp']);
+
+    await _peerConnection.setRemoteDescription(remotedescription);
+    RTCSessionDescription localdescription =
         await _peerConnection.createAnswer(_sdpConstraints);
 
     await widget.room.answerCall(
       '${widget.room.id}call',
-      description.sdp,
+      localdescription.sdp,
     );
     print('answered the call');
-    await _peerConnection.setLocalDescription(description);
+    setState(() {
+      _answered = true;
+    });
+    await _peerConnection.setLocalDescription(localdescription);
   }
 
   void _setRemoteDescription(Map<String, dynamic> session) async {
@@ -173,17 +186,18 @@ class _VideoCallPageState extends State<VideoCallPage> {
     Map<String, dynamic> session = candidates.first;
     print('candidates are adding    ' +
         '${session['candidate']}   ${session['sdpMid']}    ${session['sdpMlineIndex'].runtimeType}');
-    RTCIceCandidate candidate = new RTCIceCandidate(
-        session['candidate'].toString(),
-        session['sdpMid'].toString(),
-        session['sdpMlineIndex']);
-    await _peerConnection.addCandidate(candidate);
+    RTCIceCandidate candidate = RTCIceCandidate(session['candidate'].toString(),
+        session['sdpMid'].toString(), session['sdpMlineIndex']);
+    _peerConnection
+        .addCandidate(candidate)
+        .then((value) => print('successfully added'));
   }
 
   void _hangUp(timer) async {
-    timer.cancel();
-    _peerConnection.close();
-    await Future.delayed(Duration(seconds: 2));
+    await timer.cancel();
+    await _peerConnection.close();
+    //_peerConnection.dispose();
+    //await Future.delayed(Duration(seconds: 5));
     Navigator.pop(context);
   }
 
@@ -192,6 +206,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
     var timer = Timer.periodic(Duration(milliseconds: 30000), (timer) {
       if (!_answered) {
         widget.room.hangupCall('${widget.room.id}call');
+        _hangUp(timer);
       }
     });
 
@@ -203,12 +218,15 @@ class _VideoCallPageState extends State<VideoCallPage> {
       //widget.room.sendCallCandidates('${widget.room.id}call', candidates)
     });
     TalkDevTestApp.client.onCallCandidates.stream.listen((event) {
-      if (event.senderId != TalkDevTestApp.client.userID)
+      if (event.senderId != TalkDevTestApp.client.userID &&
+          widget.type == 'CallInvite')
         _addCandidate(event.content['candidates']);
     });
     TalkDevTestApp.client.onCallHangup.stream.listen((event) {
-      print('call hanging up');
-      _hangUp(timer);
+      if (event.senderId != TalkDevTestApp.client.userID) {
+        //widget.room.hangupCall('${widget.room.id}call');
+        _hangUp(timer);
+      }
     });
     return Scaffold(body: OrientationBuilder(builder: (context, orientation) {
       return Container(
@@ -242,32 +260,32 @@ class _VideoCallPageState extends State<VideoCallPage> {
             ),
           ),
           Positioned(
-              //left: 50,
+              width: MediaQuery.of(context).size.width,
               bottom: 20,
               child: Row(
                 mainAxisSize: MainAxisSize.max,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  widget.type == 'CallAnswer'
+                  (widget.type == 'CallAnswer' && !_answered)
                       ? IconButton(
                           splashColor: Colors.green,
                           icon: Icon(Icons.call),
                           onPressed: () {
-                            _setRemoteDescription(widget.session);
-                            _createAnswer();
+                            _createAnswer(widget.session);
                           })
                       : Container(),
                   _answered
                       ? IconButton(
-                          splashColor: Colors.black,
-                          color: Colors.white,
+                          splashColor: Colors.white,
+                          color: Colors.red,
                           icon: Icon(Icons.mic_off),
                           onPressed: () {
                             if (mounted) {
                               setState(() {
+                                _mute = !_mute;
                                 _localStream
                                     ?.getAudioTracks()[0]
-                                    .setMicrophoneMute(true);
+                                    .setMicrophoneMute(_mute);
                               });
                             }
                           })
@@ -277,6 +295,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
                       icon: Icon(Icons.call_end),
                       onPressed: () {
                         widget.room.hangupCall('${widget.room.id}call');
+                        _hangUp(timer);
                       })
                 ],
               )),
