@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:famedlysdk/famedlysdk.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:sdp_transform/sdp_transform.dart';
 import '../main.dart';
 
 class VideoCallPage extends StatefulWidget {
@@ -23,6 +21,13 @@ class _VideoCallPageState extends State<VideoCallPage> {
   MediaStream _localStream;
   RTCVideoRenderer _localRenderer = new RTCVideoRenderer();
   RTCVideoRenderer _remoteRenderer = new RTCVideoRenderer();
+  final _sdpConstraints = {
+    "mandatory": {
+      "OfferToReceiveAudio": true,
+      "OfferToReceiveVideo": true,
+    },
+    "optional": [],
+  };
   @override
   void initState() {
     _initRenderers();
@@ -61,16 +66,16 @@ class _VideoCallPageState extends State<VideoCallPage> {
         }
       ]
     };
-    final Map<String, dynamic> offerSdpConstraints = {
-      "mandatory": {
-        "OfferToReceiveAudio": true,
-        "OfferToReceiveVideo": true,
-      },
-      "optional": [],
-    };
+    // final Map<String, dynamic> offerSdpConstraints = {
+    //   "mandatory": {
+    //     "OfferToReceiveAudio": true,
+    //     "OfferToReceiveVideo": true,
+    //   },
+    //   "optional": [],
+    // };
 
     RTCPeerConnection pc =
-        await createPeerConnection(configuration, offerSdpConstraints);
+        await createPeerConnection(configuration, _sdpConstraints);
     pc.addStream(_localStream);
     pc.onIceCandidate = (e) {
       if (e.candidate != null) {
@@ -90,9 +95,11 @@ class _VideoCallPageState extends State<VideoCallPage> {
 
     pc.onAddStream = (stream) {
       print('addStream: ' + stream.id);
-      setState(() {
-        _remoteRenderer.srcObject = stream;
-      });
+      if (mounted) {
+        setState(() {
+          _remoteRenderer.srcObject = stream;
+        });
+      }
     };
 
     return pc;
@@ -109,9 +116,11 @@ class _VideoCallPageState extends State<VideoCallPage> {
     MediaStream stream =
         await navigator.mediaDevices.getUserMedia(mediaConstraints);
     _localStream = stream;
-    setState(() {
-      _localRenderer.srcObject = _localStream;
-    });
+    if (mounted) {
+      setState(() {
+        _localRenderer.srcObject = _localStream;
+      });
+    }
 
     //return stream;
   }
@@ -127,7 +136,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
 
   void createOffer() async {
     RTCSessionDescription description =
-        await _peerConnection.createOffer({'offerToReceiveVideo': 1});
+        await _peerConnection.createOffer(_sdpConstraints);
     await widget.room.inviteToCall(
       '${widget.room.id}call',
       30000,
@@ -140,7 +149,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
 
   void _createAnswer() async {
     RTCSessionDescription description =
-        await _peerConnection.createAnswer({'offerToReceiveVideo': 1});
+        await _peerConnection.createAnswer(_sdpConstraints);
 
     await widget.room.answerCall(
       '${widget.room.id}call',
@@ -171,10 +180,11 @@ class _VideoCallPageState extends State<VideoCallPage> {
     await _peerConnection.addCandidate(candidate);
   }
 
-  void _hangUp(timer) {
+  void _hangUp(timer) async {
     timer.cancel();
     _peerConnection.close();
-    Navigator.of(context).pop();
+    await Future.delayed(Duration(seconds: 2));
+    Navigator.pop(context);
   }
 
   @override
@@ -232,21 +242,38 @@ class _VideoCallPageState extends State<VideoCallPage> {
             ),
           ),
           Positioned(
-              left: 50,
+              //left: 50,
               bottom: 20,
               child: Row(
+                mainAxisSize: MainAxisSize.max,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   widget.type == 'CallAnswer'
                       ? IconButton(
-                          icon: Icon(Icons.call_received),
+                          splashColor: Colors.green,
+                          icon: Icon(Icons.call),
                           onPressed: () {
                             _setRemoteDescription(widget.session);
                             _createAnswer();
                           })
                       : Container(),
+                  _answered
+                      ? IconButton(
+                          splashColor: Colors.black,
+                          color: Colors.white,
+                          icon: Icon(Icons.mic_off),
+                          onPressed: () {
+                            if (mounted) {
+                              setState(() {
+                                _localStream
+                                    ?.getAudioTracks()[0]
+                                    .setMicrophoneMute(true);
+                              });
+                            }
+                          })
+                      : Container(),
                   IconButton(
-                      highlightColor: Colors.black,
-                      color: Colors.red,
+                      splashColor: Colors.red,
                       icon: Icon(Icons.call_end),
                       onPressed: () {
                         widget.room.hangupCall('${widget.room.id}call');
