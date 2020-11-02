@@ -81,6 +81,34 @@ class _LoginViewState extends State<LoginView> {
             child: _isLoading ? LinearProgressIndicator() : Text('Login'),
             onPressed: _isLoading ? null : _loginAction,
           ),
+          Divider(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              RaisedButton(
+                  child: Text('Karthi'),
+                  onPressed: _isLoading
+                      ? null
+                      : () {
+                          _homeserverController.text =
+                              'https://talk-dev.vyah.com';
+                          _usernameController.text = 'kartik';
+                          _passwordController.text = 'kartik123';
+                          _loginAction();
+                        }),
+              RaisedButton(
+                  child: Text('Anurag'),
+                  onPressed: _isLoading
+                      ? null
+                      : () {
+                          _homeserverController.text =
+                              'https://talk-dev.vyah.com';
+                          _usernameController.text = 'anurag';
+                          _passwordController.text = 'anurag123';
+                          _loginAction();
+                        })
+            ],
+          )
         ],
       ),
     );

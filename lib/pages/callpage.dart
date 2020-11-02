@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:famedlysdk/famedlysdk.dart';
 import 'package:flutter/material.dart';
@@ -22,7 +23,8 @@ class _VideoCallPageState extends State<VideoCallPage> {
   MediaStream _localStream;
   RTCVideoRenderer _localRenderer = new RTCVideoRenderer();
   RTCVideoRenderer _remoteRenderer = new RTCVideoRenderer();
-  var _remoteCandidates = [];
+  List<Map<String, dynamic>> _localCandidates = [];
+  int _localCandidateSendTries = 0;
   final _sdpConstraints = {
     "mandatory": {
       "OfferToReceiveAudio": true,
@@ -38,7 +40,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
       _peerConnection = pc;
       if (widget.type == 'CallInvite') {
         print('creating an offer');
-        createOffer();
+        _createOffer();
       }
     });
 
@@ -82,16 +84,30 @@ class _VideoCallPageState extends State<VideoCallPage> {
     });
     pc.addStream(_localStream);
     pc.onIceCandidate = (e) {
+      print('onicecandy - ${e.candidate}');
       if (e.candidate != null) {
-        widget.room.sendCallCandidates('${widget.room.id}call', [
-          {
-            'candidate': e.candidate.toString(),
-            'sdpMid': e.sdpMid.toString(),
-            'sdpMlineIndex': e.sdpMlineIndex,
-          }
-        ]);
+        _localCandidates.add({
+          'candidate': e.candidate.toString(),
+          'sdpMid': e.sdpMid.toString(),
+          'sdpMlineIndex': e.sdpMlineIndex,
+        });
+        if (_localCandidateSendTries == 0)
+          Timer(Duration(milliseconds: 100), () {
+            _sendCandidateQueue();
+          });
       }
     };
+    // pc.onIceGatheringState = (e) {
+    //   switch (e) {
+    //     case RTCIceGatheringState.RTCIceGatheringStateGathering:
+    //       print('gathering');
+    //       break;
+    //     case RTCIceGatheringState.RTCIceGatheringStateComplete:
+    //       _sendCandidateQueue();
+    //       break;
+    //     default:
+    //   }
+    // };
 
     pc.onIceConnectionState = (e) {
       print(e);
@@ -99,11 +115,8 @@ class _VideoCallPageState extends State<VideoCallPage> {
 
     pc.onAddStream = (stream) {
       print('addStream: ' + stream.id);
-      if (mounted) {
-        setState(() {
-          _remoteRenderer.srcObject = stream;
-        });
-      }
+
+      _remoteRenderer.srcObject = stream;
     };
 
     return pc;
@@ -129,6 +142,34 @@ class _VideoCallPageState extends State<VideoCallPage> {
     //return stream;
   }
 
+  void _sendCandidateQueue() async {
+    var cands = _localCandidates;
+    try {
+      if (_localCandidates.length == 0) {
+        return;
+      }
+      print('attempting to send candidates');
+
+      await widget.room.sendCallCandidates('${widget.room.id}call', cands);
+      _localCandidates.clear();
+      ++_localCandidateSendTries;
+    } on Exception catch (e) {
+      _localCandidates.addAll(cands);
+      if (_localCandidateSendTries > 5) {
+        print(
+            'Failed to send candidates for the $_localCandidateSendTries time. Giving up for now!');
+        _localCandidateSendTries = 0;
+        return;
+      }
+      var delayMs = 500 * pow(2, _localCandidateSendTries);
+      ++_localCandidateSendTries;
+      print("Failed to send candidates. Retrying in $delayMs ms");
+      Timer(Duration(milliseconds: delayMs), () {
+        _sendCandidateQueue();
+      });
+    }
+  }
+
   @override
   void dispose() {
     _localStream.dispose();
@@ -138,7 +179,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
     super.dispose();
   }
 
-  void createOffer() async {
+  void _createOffer() async {
     RTCSessionDescription description =
         await _peerConnection.createOffer(_sdpConstraints);
     await widget.room.inviteToCall(
@@ -183,18 +224,21 @@ class _VideoCallPageState extends State<VideoCallPage> {
   }
 
   void _addCandidate(List<dynamic> candidates) async {
-    Map<String, dynamic> session = candidates.first;
-    print('candidates are adding    ' +
-        '${session['candidate']}   ${session['sdpMid']}    ${session['sdpMlineIndex'].runtimeType}');
-    RTCIceCandidate candidate = RTCIceCandidate(session['candidate'].toString(),
-        session['sdpMid'].toString(), session['sdpMlineIndex']);
-    _peerConnection
-        .addCandidate(candidate)
-        .then((value) => print('successfully added'));
+    candidates.forEach((session) {
+      print('candidates are adding    ' +
+          '${session['candidate']}   ${session['sdpMid']}    ${session['sdpMlineIndex'].runtimeType}');
+      RTCIceCandidate candidate = RTCIceCandidate(
+          session['candidate'].toString(),
+          session['sdpMid'].toString(),
+          session['sdpMlineIndex']);
+      _peerConnection
+          .addCandidate(candidate)
+          .then((value) => print('successfully added'));
+    });
   }
 
-  void _hangUp(timer) async {
-    await timer.cancel();
+  void _hangUp() async {
+    //if (timer) await timer.cancel();
     await _peerConnection.close();
     //_peerConnection.dispose();
     //await Future.delayed(Duration(seconds: 5));
@@ -203,10 +247,10 @@ class _VideoCallPageState extends State<VideoCallPage> {
 
   @override
   Widget build(BuildContext context) {
-    var timer = Timer.periodic(Duration(milliseconds: 30000), (timer) {
+    var timer = Timer(Duration(milliseconds: 30000), () {
       if (!_answered) {
         widget.room.hangupCall('${widget.room.id}call');
-        _hangUp(timer);
+        _hangUp();
       }
     });
 
@@ -218,14 +262,13 @@ class _VideoCallPageState extends State<VideoCallPage> {
       //widget.room.sendCallCandidates('${widget.room.id}call', candidates)
     });
     TalkDevTestApp.client.onCallCandidates.stream.listen((event) {
-      if (event.senderId != TalkDevTestApp.client.userID &&
-          widget.type == 'CallInvite')
+      if (event.senderId != TalkDevTestApp.client.userID)
         _addCandidate(event.content['candidates']);
     });
     TalkDevTestApp.client.onCallHangup.stream.listen((event) {
       if (event.senderId != TalkDevTestApp.client.userID) {
         //widget.room.hangupCall('${widget.room.id}call');
-        _hangUp(timer);
+        _hangUp();
       }
     });
     return Scaffold(body: OrientationBuilder(builder: (context, orientation) {
@@ -295,7 +338,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
                       icon: Icon(Icons.call_end),
                       onPressed: () {
                         widget.room.hangupCall('${widget.room.id}call');
-                        _hangUp(timer);
+                        _hangUp();
                       })
                 ],
               )),
