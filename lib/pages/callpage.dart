@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'dart:math';
 
 import 'package:famedlysdk/famedlysdk.dart';
@@ -24,7 +25,10 @@ class _VideoCallPageState extends State<VideoCallPage> {
   RTCVideoRenderer _localRenderer = new RTCVideoRenderer();
   RTCVideoRenderer _remoteRenderer = new RTCVideoRenderer();
   List<Map<String, dynamic>> _localCandidates = [];
+  bool _first = true;
+  bool _inCalling = false;
   int _localCandidateSendTries = 0;
+  bool _hangedup = false;
   final _sdpConstraints = {
     "mandatory": {
       "OfferToReceiveAudio": true,
@@ -91,23 +95,25 @@ class _VideoCallPageState extends State<VideoCallPage> {
           'sdpMid': e.sdpMid.toString(),
           'sdpMlineIndex': e.sdpMlineIndex,
         });
-        if (_localCandidateSendTries == 0)
+        if (_first) {
           Timer(Duration(milliseconds: 100), () {
             _sendCandidateQueue();
           });
+          _first = false;
+        }
       }
     };
-    // pc.onIceGatheringState = (e) {
-    //   switch (e) {
-    //     case RTCIceGatheringState.RTCIceGatheringStateGathering:
-    //       print('gathering');
-    //       break;
-    //     case RTCIceGatheringState.RTCIceGatheringStateComplete:
-    //       _sendCandidateQueue();
-    //       break;
-    //     default:
-    //   }
-    // };
+    pc.onIceGatheringState = (e) {
+      switch (e) {
+        case RTCIceGatheringState.RTCIceGatheringStateGathering:
+          print('gathering');
+          break;
+        case RTCIceGatheringState.RTCIceGatheringStateComplete:
+          _sendCandidateQueue();
+          break;
+        default:
+      }
+    };
 
     pc.onIceConnectionState = (e) {
       print(e);
@@ -118,7 +124,12 @@ class _VideoCallPageState extends State<VideoCallPage> {
 
       _remoteRenderer.srcObject = stream;
     };
-
+    pc.onRemoveStream = (stream) {
+      _remoteRenderer.srcObject = null;
+    };
+    setState(() {
+      _inCalling = true;
+    });
     return pc;
   }
 
@@ -151,8 +162,11 @@ class _VideoCallPageState extends State<VideoCallPage> {
       print('attempting to send candidates');
 
       await widget.room.sendCallCandidates('${widget.room.id}call', cands);
-      _localCandidates.clear();
-      ++_localCandidateSendTries;
+
+      setState(() {
+        _localCandidates.clear();
+        ++_localCandidateSendTries;
+      });
     } on Exception catch (e) {
       _localCandidates.addAll(cands);
       if (_localCandidateSendTries > 5) {
@@ -172,9 +186,13 @@ class _VideoCallPageState extends State<VideoCallPage> {
 
   @override
   void dispose() {
-    _localStream.dispose();
-    _localRenderer.dispose();
-    _remoteRenderer.dispose();
+    if (_inCalling) {
+      _hangUp();
+    }
+    //_localStream.dispose();
+    // _localRenderer.dispose();
+    // _remoteRenderer.dispose();
+    //_peerConnection.close();
     //_peerConnection.dispose();
     super.dispose();
   }
@@ -182,14 +200,13 @@ class _VideoCallPageState extends State<VideoCallPage> {
   void _createOffer() async {
     RTCSessionDescription description =
         await _peerConnection.createOffer(_sdpConstraints);
+    await _peerConnection.setLocalDescription(description);
     await widget.room.inviteToCall(
       '${widget.room.id}call',
       30000,
       description.sdp.toString(),
     );
     print('offer created');
-
-    await _peerConnection.setLocalDescription(description);
   }
 
   void _createAnswer(session) async {
@@ -201,7 +218,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
     await _peerConnection.setRemoteDescription(remotedescription);
     RTCSessionDescription localdescription =
         await _peerConnection.createAnswer(_sdpConstraints);
-
+    await _peerConnection.setLocalDescription(localdescription);
     await widget.room.answerCall(
       '${widget.room.id}call',
       localdescription.sdp,
@@ -210,7 +227,6 @@ class _VideoCallPageState extends State<VideoCallPage> {
     setState(() {
       _answered = true;
     });
-    await _peerConnection.setLocalDescription(localdescription);
   }
 
   void _setRemoteDescription(Map<String, dynamic> session) async {
@@ -238,24 +254,42 @@ class _VideoCallPageState extends State<VideoCallPage> {
   }
 
   void _hangUp() async {
-    //if (timer) await timer.cancel();
-    await _peerConnection.close();
-    //_peerConnection.dispose();
-    //await Future.delayed(Duration(seconds: 5));
-    Navigator.pop(context);
+    try {
+      await _localStream.dispose();
+      await _peerConnection.close();
+      _peerConnection = null;
+      _localRenderer.srcObject = null;
+      _remoteRenderer.srcObject = null;
+      _localRenderer.dispose();
+      _remoteRenderer.dispose();
+    } catch (e) {
+      print(e.toString());
+    }
+    setState(() {
+      _inCalling = false;
+      _hangedup = true;
+    });
+    //_timer.cancel();
   }
 
   @override
   Widget build(BuildContext context) {
     var timer = Timer(Duration(milliseconds: 30000), () {
       if (!_answered) {
-        widget.room.hangupCall('${widget.room.id}call');
         _hangUp();
+        // widget.room.hangupCall('${widget.room.id}call');
+        // _hangUp();
       }
     });
-
+    if (_hangedup) {
+      timer.cancel();
+      Navigator.of(context).pop();
+    }
     TalkDevTestApp.client.onCallAnswer.stream.listen((event) {
-      _answered = true;
+      setState(() {
+        _answered = true;
+      });
+
       if (event.senderId != TalkDevTestApp.client.userID)
         _setRemoteDescription(event.content['answer']);
 
@@ -267,8 +301,9 @@ class _VideoCallPageState extends State<VideoCallPage> {
     });
     TalkDevTestApp.client.onCallHangup.stream.listen((event) {
       if (event.senderId != TalkDevTestApp.client.userID) {
-        //widget.room.hangupCall('${widget.room.id}call');
         _hangUp();
+        //widget.room.hangupCall('${widget.room.id}call');
+        //if (mounted) Navigator.pop(context);
       }
     });
     return Scaffold(body: OrientationBuilder(builder: (context, orientation) {
@@ -336,8 +371,8 @@ class _VideoCallPageState extends State<VideoCallPage> {
                   IconButton(
                       splashColor: Colors.red,
                       icon: Icon(Icons.call_end),
-                      onPressed: () {
-                        widget.room.hangupCall('${widget.room.id}call');
+                      onPressed: () async {
+                        await widget.room.hangupCall('${widget.room.id}call');
                         _hangUp();
                       })
                 ],
