@@ -212,7 +212,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
   }
 
   void _createAnswer(session) async {
-    await _createPeerConnection();
+    await _createPeerConnection().then((pc) => _peerConnection = pc);
     RTCSessionDescription remotedescription = new RTCSessionDescription(
         session['sdp'].toString(), session['type'].toString());
 
@@ -238,7 +238,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
     RTCSessionDescription description = new RTCSessionDescription(
         session['sdp'].toString(), session['type'].toString());
 
-    print(session['sdp']);
+    print("remote sdp: " + session['sdp']);
 
     await _peerConnection.setRemoteDescription(description);
   }
