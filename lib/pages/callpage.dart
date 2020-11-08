@@ -86,7 +86,9 @@ class _VideoCallPageState extends State<VideoCallPage> {
 
     RTCPeerConnection pc = await createPeerConnection(configuration, {
       'mandatory': {},
-      'optional': [],
+      'optional': [
+        {'DtlsSrtpKeyAgreement': true},
+      ],
     });
     pc.addStream(_localStream);
     pc.onIceCandidate = (e) {
