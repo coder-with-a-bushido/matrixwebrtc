@@ -215,19 +215,20 @@ class _VideoCallPageState extends State<VideoCallPage> {
         session['sdp'].toString(), session['type'].toString());
 
     print(session['sdp']);
-
-    await _peerConnection.setRemoteDescription(remotedescription);
-    RTCSessionDescription localdescription =
-        await _peerConnection.createAnswer(_sdpConstraints);
-    await _peerConnection.setLocalDescription(localdescription);
-    await widget.room.answerCall(
-      '${widget.room.id}call',
-      localdescription.sdp,
-    );
-    print('answered the call');
-    setState(() {
-      _answered = true;
-    });
+    if (remotedescription.sdp != null) {
+      await _peerConnection.setRemoteDescription(remotedescription);
+      RTCSessionDescription localdescription =
+          await _peerConnection.createAnswer(_sdpConstraints);
+      await _peerConnection.setLocalDescription(localdescription);
+      await widget.room.answerCall(
+        '${widget.room.id}call',
+        localdescription.sdp,
+      );
+      print('answered the call');
+      setState(() {
+        _answered = true;
+      });
+    }
   }
 
   void _setRemoteDescription(Map<String, dynamic> session) async {
