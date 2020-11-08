@@ -25,6 +25,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
   RTCVideoRenderer _localRenderer = new RTCVideoRenderer();
   RTCVideoRenderer _remoteRenderer = new RTCVideoRenderer();
   List<Map<String, dynamic>> _localCandidates = [];
+  List<RTCIceCandidate> _remoteCandidates = [];
   bool _first = true;
   bool _inCalling = false;
   int _localCandidateSendTries = 0;
@@ -239,18 +240,24 @@ class _VideoCallPageState extends State<VideoCallPage> {
     await _peerConnection.setRemoteDescription(description);
   }
 
-  void _addCandidate(List<dynamic> candidates) async {
-    candidates.forEach((session) {
-      print('candidates are adding    ' +
-          '${session['candidate']}   ${session['sdpMid']}    ${session['sdpMlineIndex'].runtimeType}');
-      RTCIceCandidate candidate = RTCIceCandidate(
-          session['candidate'].toString(),
-          session['sdpMid'].toString(),
-          session['sdpMlineIndex']);
-      _peerConnection
-          .addCandidate(candidate)
-          .then((value) => print('successfully added'));
-    });
+  void _addCandidate() async {
+    try {
+      _remoteCandidates.forEach((session) {
+        print('candidates are adding    ' +
+            '${session.candidate}   ${session.sdpMid}    ${session.sdpMlineIndex}');
+        // RTCIceCandidate candidate = RTCIceCandidate(
+        //     session['candidate'].toString(),
+        //     session['sdpMid'].toString(),
+        //     session['sdpMlineIndex']);
+        if (session != null)
+          _peerConnection
+              .addCandidate(session)
+              .then((value) => print('successfully added'));
+      });
+      _remoteCandidates.clear();
+    } catch (e) {
+      print('Exception in adding the candidates');
+    }
   }
 
   void _hangUp() async {
@@ -296,8 +303,30 @@ class _VideoCallPageState extends State<VideoCallPage> {
       //widget.room.sendCallCandidates('${widget.room.id}call', candidates)
     });
     TalkDevTestApp.client.onCallCandidates.stream.listen((event) {
-      if (event.senderId != TalkDevTestApp.client.userID)
-        _addCandidate(event.content['candidates']);
+      if (event.senderId != TalkDevTestApp.client.userID) {
+        if (_answered) {
+          event.content['candidates'].forEach((session) {
+            // print('candidates are adding    ' +
+            //     '${session['candidate']}   ${session['sdpMid']}    ${session['sdpMlineIndex'].runtimeType}');
+            RTCIceCandidate candidate = RTCIceCandidate(
+                session['candidate'].toString(),
+                session['sdpMid'].toString(),
+                session['sdpMlineIndex']);
+            _remoteCandidates.add(candidate);
+          });
+          _addCandidate();
+        } else {
+          event.content['candidates'].forEach((session) {
+            // print('candidates are adding    ' +
+            //     '${session['candidate']}   ${session['sdpMid']}    ${session['sdpMlineIndex'].runtimeType}');
+            RTCIceCandidate candidate = RTCIceCandidate(
+                session['candidate'].toString(),
+                session['sdpMid'].toString(),
+                session['sdpMlineIndex']);
+            _remoteCandidates.add(candidate);
+          });
+        }
+      }
     });
     TalkDevTestApp.client.onCallHangup.stream.listen((event) {
       if (event.senderId != TalkDevTestApp.client.userID) {
