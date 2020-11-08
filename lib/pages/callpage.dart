@@ -41,13 +41,14 @@ class _VideoCallPageState extends State<VideoCallPage> {
   void initState() {
     _initRenderers();
     _getUserMedia();
-    _createPeerConnection().then((pc) {
-      _peerConnection = pc;
-      if (widget.type == 'CallInvite') {
+    if (widget.type == 'CallInvite') {
+      _createPeerConnection().then((pc) {
+        _peerConnection = pc;
+
         print('creating an offer');
         _createOffer();
-      }
-    });
+      });
+    }
 
     super.initState();
   }
@@ -211,10 +212,11 @@ class _VideoCallPageState extends State<VideoCallPage> {
   }
 
   void _createAnswer(session) async {
+    await _createPeerConnection();
     RTCSessionDescription remotedescription = new RTCSessionDescription(
         session['sdp'].toString(), session['type'].toString());
 
-    print(session['sdp']);
+    print("remote sdp: " + session['sdp']);
     if (remotedescription.sdp != null) {
       await _peerConnection.setRemoteDescription(remotedescription);
       RTCSessionDescription localdescription =
