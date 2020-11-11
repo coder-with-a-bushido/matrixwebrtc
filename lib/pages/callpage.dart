@@ -59,30 +59,19 @@ class _VideoCallPageState extends State<VideoCallPage> {
   }
 
   Future<RTCPeerConnection> _createPeerConnection() async {
-    TurnServerCredentials turnServerCredentials =
-        await TalkDevTestApp.client.requestTurnServerCredentials();
-    Map<String, dynamic> configuration = {
-      'iceServers': [
-        //{"url": "stun:stun.l.google.com:19302"},
-        {
-          'url': turnServerCredentials.uris[0].toString(),
-          'credential': turnServerCredentials.password.toString(),
-          'username': turnServerCredentials.username.toString()
-        },
-        {
-          'url': turnServerCredentials.uris[1].toString(),
-          'credential': turnServerCredentials.password.toString(),
-          'username': turnServerCredentials.username.toString()
-        }
-      ]
-    };
-    // final Map<String, dynamic> offerSdpConstraints = {
-    //   "mandatory": {
-    //     "OfferToReceiveAudio": true,
-    //     "OfferToReceiveVideo": true,
-    //   },
-    //   "optional": [],
-    // };
+    List<Map<String, dynamic>> turnServerCredentials = [];
+    await TalkDevTestApp.client.requestTurnServerCredentials().then((servers) {
+      var turnpassword = servers.password;
+      var turnusername = servers.username;
+      servers.uris.forEach((turnurl) {
+        turnServerCredentials.add({
+          'url': turnurl.toString(),
+          'credential': turnpassword.toString(),
+          'username': turnusername.toString()
+        });
+      });
+    });
+    Map<String, dynamic> configuration = {'iceServers': turnServerCredentials};
 
     RTCPeerConnection pc = await createPeerConnection(configuration, {
       'mandatory': {},
