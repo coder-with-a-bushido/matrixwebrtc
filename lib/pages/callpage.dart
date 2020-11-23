@@ -71,7 +71,28 @@ class _VideoCallPageState extends State<VideoCallPage> {
         });
       });
     });
-    Map<String, dynamic> configuration = {'iceServers': turnServerCredentials};
+    Map<String, dynamic> configuration = {
+      'iceServers': [
+        {
+          'urls': ["stun:us-turn9.xirsys.com"]
+        },
+        {
+          'username':
+              "sQvu725rmORN5oWl3QBtl-kRuWv3rG-3KyGsi20hbzpawEuy_FKtZR6JabfRgyhJAAAAAF-1Rg5kYW1hbm5ldHdvcmsx",
+          'credential': "bdab0e88-29b7-11eb-9187-0242ac140004",
+          'urls': [
+            // "turn:us-turn9.xirsys.com:80?transport=udp",
+            // "turn:us-turn9.xirsys.com:3478?transport=udp",
+            // "turn:us-turn9.xirsys.com:80?transport=tcp",
+            // "turn:us-turn9.xirsys.com:3478?transport=tcp",
+            "turns:us-turn9.xirsys.com:443?transport=tcp",
+            "turns:us-turn9.xirsys.com:5349?transport=tcp"
+          ]
+        }
+      ],
+      'iceCandidatePoolSize': 2,
+    };
+    //{'iceServers': turnServerCredentials};
 
     RTCPeerConnection pc = await createPeerConnection(configuration, {
       'mandatory': {},
@@ -79,7 +100,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
         {'DtlsSrtpKeyAgreement': true},
       ],
     });
-    pc.addStream(_localStream);
+    await pc.addStream(_localStream);
     pc.onIceCandidate = (e) {
       print('onicecandy - ${e.candidate}');
       if (e.candidate != null) {
@@ -97,6 +118,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
       }
     };
     pc.onIceGatheringState = (e) {
+      print(e);
       switch (e) {
         case RTCIceGatheringState.RTCIceGatheringStateGathering:
           print('gathering');
@@ -146,7 +168,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
     //return stream;
   }
 
-  void _sendCandidateQueue() async {
+  Future<void> _sendCandidateQueue() async {
     var cands = _localCandidates;
     try {
       if (_localCandidates.length == 0) {
@@ -203,13 +225,16 @@ class _VideoCallPageState extends State<VideoCallPage> {
   }
 
   void _createAnswer(session) async {
-    await _createPeerConnection().then((pc) => _peerConnection = pc);
+    await _createPeerConnection().then((pc) {
+      _peerConnection = pc;
+    });
     RTCSessionDescription remotedescription = new RTCSessionDescription(
         session['sdp'].toString(), session['type'].toString());
 
     print("remote sdp: " + session['sdp']);
     if (remotedescription.sdp != null) {
       await _peerConnection.setRemoteDescription(remotedescription);
+
       RTCSessionDescription localdescription =
           await _peerConnection.createAnswer(_sdpConstraints);
       await _peerConnection.setLocalDescription(localdescription);
@@ -218,10 +243,10 @@ class _VideoCallPageState extends State<VideoCallPage> {
         localdescription.sdp,
       );
       print('answered the call');
-      setState(() {
-        _answered = true;
-      });
     }
+    setState(() {
+      _answered = true;
+    });
   }
 
   void _setRemoteDescription(Map<String, dynamic> session) async {
@@ -232,9 +257,12 @@ class _VideoCallPageState extends State<VideoCallPage> {
     print("remote sdp: " + session['sdp']);
 
     await _peerConnection.setRemoteDescription(description);
+    setState(() {
+      _answered = true;
+    });
   }
 
-  void _addCandidate() async {
+  Future<void> _addCandidate() async {
     try {
       _remoteCandidates.forEach((session) {
         print('candidates are adding    ' +
@@ -243,15 +271,18 @@ class _VideoCallPageState extends State<VideoCallPage> {
         //     session['candidate'].toString(),
         //     session['sdpMid'].toString(),
         //     session['sdpMlineIndex']);
-        if (session != null)
-          _peerConnection
-              .addCandidate(session)
-              .then((value) => print('successfully added'));
+        if (session != null) _addCandidateFromList(session);
       });
       _remoteCandidates.clear();
     } catch (e) {
       print('Exception in adding the candidates');
     }
+  }
+
+  Future<void> _addCandidateFromList(RTCIceCandidate session) async {
+    await _peerConnection
+        .addCandidate(session)
+        .then((value) => print('successfully added'));
   }
 
   void _hangUp() async {
@@ -287,10 +318,6 @@ class _VideoCallPageState extends State<VideoCallPage> {
       Navigator.of(context).pop();
     }
     TalkDevTestApp.client.onCallAnswer.stream.listen((event) {
-      setState(() {
-        _answered = true;
-      });
-
       if (event.senderId != TalkDevTestApp.client.userID)
         _setRemoteDescription(event.content['answer']);
 
