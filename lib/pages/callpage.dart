@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'dart:math';
 
+import 'package:example/src/matrixcall.dart';
 import 'package:famedlysdk/famedlysdk.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -30,6 +31,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
   bool _inCalling = false;
   int _localCandidateSendTries = 0;
   bool _hangedup = false;
+
   final _sdpConstraints = {
     "mandatory": {
       "OfferToReceiveAudio": true,
@@ -71,35 +73,53 @@ class _VideoCallPageState extends State<VideoCallPage> {
         });
       });
     });
-    Map<String, dynamic> configuration = {
+    // Map<String, dynamic> configuration = {
+    //   'iceServers': [
+    //     {
+    //       'urls': ["stun:us-turn9.xirsys.com"]
+    //     },
+    //     {
+    //       'username':
+    //           "sQvu725rmORN5oWl3QBtl-kRuWv3rG-3KyGsi20hbzpawEuy_FKtZR6JabfRgyhJAAAAAF-1Rg5kYW1hbm5ldHdvcmsx",
+    //       'credential': "bdab0e88-29b7-11eb-9187-0242ac140004",
+    //       'urls': [
+    //         // "turn:us-turn9.xirsys.com:80?transport=udp",
+    //         // "turn:us-turn9.xirsys.com:3478?transport=udp",
+    //         // "turn:us-turn9.xirsys.com:80?transport=tcp",
+    //         // "turn:us-turn9.xirsys.com:3478?transport=tcp",
+    //         "turns:us-turn9.xirsys.com:443?transport=tcp",
+    //         "turns:us-turn9.xirsys.com:5349?transport=tcp"
+    //       ]
+    //     }
+    //   ],
+    //   'iceCandidatePoolSize': 10,
+    // };
+    //{'iceServers': turnServerCredentials};
+    Map<String, dynamic> _iceServers = {
       'iceServers': [
+        {'url': 'stun:turn.connectycube.com'},
         {
-          'urls': ["stun:us-turn9.xirsys.com"]
+          'url': 'turn:turn.connectycube.com:5349?transport=udp',
+          'username': 'connectycube',
+          'credential': '4c29501ca9207b7fb9c4b4b6b04faeb1'
         },
         {
-          'username':
-              "sQvu725rmORN5oWl3QBtl-kRuWv3rG-3KyGsi20hbzpawEuy_FKtZR6JabfRgyhJAAAAAF-1Rg5kYW1hbm5ldHdvcmsx",
-          'credential': "bdab0e88-29b7-11eb-9187-0242ac140004",
-          'urls': [
-            // "turn:us-turn9.xirsys.com:80?transport=udp",
-            // "turn:us-turn9.xirsys.com:3478?transport=udp",
-            // "turn:us-turn9.xirsys.com:80?transport=tcp",
-            // "turn:us-turn9.xirsys.com:3478?transport=tcp",
-            "turns:us-turn9.xirsys.com:443?transport=tcp",
-            "turns:us-turn9.xirsys.com:5349?transport=tcp"
-          ]
-        }
-      ],
-      'iceCandidatePoolSize': 2,
+          'url': 'turn:turn.connectycube.com:5349?transport=tcp',
+          'username': 'connectycube',
+          'credential': '4c29501ca9207b7fb9c4b4b6b04faeb1'
+        },
+      ]
     };
-    //{'iceServers': turnServerCredentials};
 
-    RTCPeerConnection pc = await createPeerConnection(configuration, {
+    final Map<String, dynamic> _config = {
       'mandatory': {},
       'optional': [
         {'DtlsSrtpKeyAgreement': true},
       ],
-    });
+    };
+
+    RTCPeerConnection pc = await createPeerConnection(_iceServers, _config);
+    print('pc config: ${pc.getConfiguration}');
     await pc.addStream(_localStream);
     pc.onIceCandidate = (e) {
       print('onicecandy - ${e.candidate}');
@@ -117,6 +137,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
         }
       }
     };
+
     pc.onIceGatheringState = (e) {
       print(e);
       switch (e) {

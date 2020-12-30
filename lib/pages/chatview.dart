@@ -1,6 +1,10 @@
-import 'package:example/pages/callpage.dart';
+import 'package:example/bloc/callstate_bloc.dart';
+import 'package:example/src/callstatusprovider.dart';
+import 'package:example/src/utils/specs.dart';
 import 'package:famedlysdk/famedlysdk.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 
 import '../main.dart';
 
@@ -49,14 +53,18 @@ class _ChatViewState extends State<ChatView> {
           IconButton(
             icon: Icon(Icons.video_call),
             onPressed: () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => VideoCallPage(
-                            key: ValueKey(widget.room.id),
-                            room: widget.room,
-                            type: 'CallInvite',
-                          )));
+              context
+                  .read<CallstateBloc>()
+                  .add(OutgoingCall(room: widget.room));
+              print('set as outgoing call');
+              // Navigator.push(
+              //     context,
+              //     MaterialPageRoute(
+              //         builder: (context) => VideoCallPage(
+              //               key: ValueKey(widget.room.id),
+              //               room: widget.room,
+              //               type: 'CallInvite',
+              //             )));
             },
           )
         ],

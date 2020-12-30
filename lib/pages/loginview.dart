@@ -1,6 +1,12 @@
+import 'package:example/bloc/callstate_bloc.dart';
+import 'package:example/src/callstatusprovider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 
 import '../main.dart';
+import 'callpages/incomingcall.dart';
+import 'callpages/outgoingcall.dart';
 import 'chatlistview.dart';
 
 class LoginView extends StatefulWidget {
@@ -28,8 +34,31 @@ class _LoginViewState extends State<LoginView> {
           false) {
         throw (Exception('Username or password incorrect'));
       }
+
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => ChatListView()),
+        MaterialPageRoute(
+            builder: (_) => BlocBuilder<CallstateBloc, CallstateState>(
+                    builder: (context, state) {
+                  return Navigator(
+                    pages: [
+                      MaterialPage(child: ChatListView()),
+                      if (state is CallstateOutgoing)
+                        MaterialPage(
+                            child: OutgoingScreen(
+                          room: state.room,
+                        )),
+                      if (state is CallstateIncoming)
+                        MaterialPage(
+                            child: IncomingScreen(
+                          remoteSDP: state.remoteSDP,
+                        ))
+                    ],
+                    onPopPage: (route, result) {
+                      if (!route.didPop(result)) return false;
+                      return true;
+                    },
+                  );
+                })),
         (route) => false,
       );
     } catch (e) {
@@ -86,25 +115,25 @@ class _LoginViewState extends State<LoginView> {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               RaisedButton(
-                  child: Text('Karthi'),
+                  child: Text('charlie'),
                   onPressed: _isLoading
                       ? null
                       : () {
                           _homeserverController.text =
-                              'https://talk-dev.vyah.com';
-                          _usernameController.text = 'kartik';
-                          _passwordController.text = 'kartik123';
+                              'https://matrixdev.vyah.com:8443';
+                          _usernameController.text = 'charlie';
+                          _passwordController.text = 'charlie123';
                           _loginAction();
                         }),
               RaisedButton(
-                  child: Text('Anurag'),
+                  child: Text('delta'),
                   onPressed: _isLoading
                       ? null
                       : () {
                           _homeserverController.text =
-                              'https://talk-dev.vyah.com';
-                          _usernameController.text = 'anurag';
-                          _passwordController.text = 'anurag123';
+                              'https://matrixdev.vyah.com:8443';
+                          _usernameController.text = 'delta';
+                          _passwordController.text = 'delta123';
                           _loginAction();
                         })
             ],
