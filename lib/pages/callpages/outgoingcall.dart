@@ -1,5 +1,5 @@
 import 'package:example/bloc/callstate_bloc.dart';
-import 'package:example/src/callstatusprovider.dart';
+import 'package:example/pages/callpages/connectedcall.dart';
 import 'package:example/src/matrixcall.dart';
 import 'package:famedlysdk/famedlysdk.dart';
 import 'package:flutter/material.dart';
@@ -16,7 +16,7 @@ class OutgoingScreen extends StatefulWidget {
 class _OutgoingScreenState extends State<OutgoingScreen> {
   MatrixCall matrixCall = MatrixCall();
   RTCVideoRenderer _localRenderer = new RTCVideoRenderer();
-
+  bool isConnected = false;
   @override
   void initState() {
     _initOutgoingScreen();
@@ -26,24 +26,51 @@ class _OutgoingScreenState extends State<OutgoingScreen> {
 
   @override
   dispose() {
-    matrixCall.hangUp();
     _disposeOutgoingScreen();
     super.dispose();
   }
 
   _initOutgoingScreen() async {
     await _localRenderer.initialize();
+    await matrixCall.initialize().then((value) {
+      if (mounted)
+        setState(() {
+          _localRenderer.srcObject = matrixCall.localStream;
+        });
+    });
     matrixCall.room = widget.room;
+    matrixCall.state.listen((state) {
+      _checkState(state);
+    });
     matrixCall.startCall();
-    _localRenderer.srcObject = matrixCall.localStream;
   }
 
   _disposeOutgoingScreen() async {
     if (_localRenderer != null) _localRenderer.dispose();
   }
 
+  _checkState(PeerConnectionState state) {
+    if (state == PeerConnectionState.RTC_CONNECTION_PENDING) {
+      print("localrenderer set!!!!!!!!!!!!!");
+      if (mounted)
+        setState(() {
+          _localRenderer.srcObject = matrixCall.localStream;
+        });
+    } else if (state == PeerConnectionState.RTC_CONNECTION_CONNECTED) {
+      if (mounted)
+        setState(() {
+          isConnected = true;
+        });
+    } //else if(state==PeerConnectionState.RTC_CONNECTION_FAILED)
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (isConnected)
+      return ConnectedCallScreen(
+        matrixCall: matrixCall,
+        context: context,
+      );
     return Scaffold(
       body: Container(
         child: Stack(
@@ -57,7 +84,7 @@ class _OutgoingScreenState extends State<OutgoingScreen> {
                 margin: EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0),
                 width: MediaQuery.of(context).size.width,
                 height: MediaQuery.of(context).size.height,
-                child: _localRenderer != null
+                child: _localRenderer.srcObject != null
                     ? RTCVideoView(
                         _localRenderer,
                       )
@@ -71,6 +98,7 @@ class _OutgoingScreenState extends State<OutgoingScreen> {
                 icon: Icon(Icons.call_end),
                 color: Colors.red,
                 onPressed: () {
+                  matrixCall.hangUp();
                   context.read<CallstateBloc>().add(NoCall());
                 },
               ),

@@ -6,8 +6,9 @@ abstract class CallstateState {}
 class CallstateNone extends CallstateState {}
 
 class CallstateIncoming extends CallstateState {
-  CallstateIncoming({this.remoteSDP});
+  CallstateIncoming({this.remoteSDP, this.room});
   final RTCSessionDescription remoteSDP;
+  final Room room;
 }
 
 class CallstateOutgoing extends CallstateState {

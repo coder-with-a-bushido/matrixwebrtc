@@ -4,8 +4,9 @@ part of 'callstate_bloc.dart';
 abstract class CallstateEvent {}
 
 class IncomingCall extends CallstateEvent {
-  IncomingCall({this.remoteSDP});
+  IncomingCall({this.remoteSDP, this.room});
   final RTCSessionDescription remoteSDP;
+  final Room room;
 }
 
 class OutgoingCall extends CallstateEvent {

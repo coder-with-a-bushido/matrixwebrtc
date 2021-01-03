@@ -51,6 +51,7 @@ class _LoginViewState extends State<LoginView> {
                         MaterialPage(
                             child: IncomingScreen(
                           remoteSDP: state.remoteSDP,
+                          room: state.room,
                         ))
                     ],
                     onPopPage: (route, result) {

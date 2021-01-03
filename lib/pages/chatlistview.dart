@@ -1,13 +1,8 @@
 import 'package:example/bloc/callstate_bloc.dart';
-import 'package:example/pages/callpage.dart';
-import 'package:example/pages/callpages/incomingcall.dart';
-import 'package:example/pages/callpages/outgoingcall.dart';
-import 'package:example/src/callstatusprovider.dart';
-import 'package:example/src/matrixcall.dart';
 import 'package:famedlysdk/famedlysdk.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../main.dart';
 import 'chatview.dart';
@@ -24,18 +19,24 @@ class _ChatListViewState extends State<ChatListView> {
 
   @override
   Widget build(BuildContext buildContext) {
-    // TalkDevTestApp.client.onCallInvite.stream.listen((event) {
-    //   if (event.senderId != TalkDevTestApp.client.userID) {
-    //     Navigator.push(
-    //         context,
-    //         MaterialPageRoute(
-    //             builder: (context) => VideoCallPage(
-    //                   room: event.room,
-    //                   type: 'CallAnswer',
-    //                   session: event.content['offer'],
-    //                 )));
-    //   }
-    // });
+    TalkDevTestApp.client.onCallInvite.stream.listen((event) {
+      if (event.senderId != TalkDevTestApp.client.userID) {
+        RTCSessionDescription remotedescription = new RTCSessionDescription(
+            event.content['offer']['sdp'].toString(),
+            event.content['offer']['type'].toString());
+        buildContext
+            .read<CallstateBloc>()
+            .add(IncomingCall(remoteSDP: remotedescription, room: event.room));
+        // Navigator.push(
+        //     context,
+        //     MaterialPageRoute(
+        //         builder: (context) => VideoCallPage(
+        //               room: event.room,
+        //               type: 'CallAnswer',
+        //               session: event.content['offer'],
+        //             )));
+      }
+    });
     return Scaffold(
       appBar: AppBar(
         title: Text('Chats'),

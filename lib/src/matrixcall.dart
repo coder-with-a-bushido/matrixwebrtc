@@ -35,7 +35,8 @@ class MatrixCall {
   final bool useCallingTimer;
   final _stateController = StreamController<PeerConnectionState>();
 
-  Stream<PeerConnectionState> get state => _stateController.stream;
+  Stream<PeerConnectionState> get state =>
+      _stateController.stream.asBroadcastStream();
   MediaStream get localStream => _localMediaStream;
   MediaStream get remoteStream => _remoteMediaStream;
 
@@ -79,6 +80,10 @@ class MatrixCall {
       onConnectionStateChanged(PeerConnectionState.RTC_CONNECTION_CLOSED);
     });
   }
+  Future<void> initialize() async {
+    _peerConnection = await _createPeerConnection();
+  }
+
   Future<RTCPeerConnection> _createPeerConnection() async {
     RTCPeerConnection pc = await createPeerConnection(_iceServers, _config);
     _localMediaStream = await getUserMedia();
@@ -154,15 +159,12 @@ class MatrixCall {
         'optional': [],
       };
   void startCall() {
-    _createPeerConnection().then((pc) {
-      this._peerConnection = pc;
-      _createOffer(pc);
-    });
+    _createOffer(_peerConnection);
   }
 
   answerCall() async {
-    if (PeerConnectionState.RTC_CONNECTION_PENDING != _signalingState &&
-        PeerConnectionState.RTC_CONNECTION_NEW != _signalingState) return;
+    // if (PeerConnectionState.RTC_CONNECTION_PENDING != _signalingState &&
+    //     PeerConnectionState.RTC_CONNECTION_NEW != _signalingState) return;
 
     print('startAnswer');
 
@@ -170,7 +172,6 @@ class MatrixCall {
 
     if (_remoteSdp == null) return;
 
-    _peerConnection = await _createPeerConnection();
     _setRemoteDescription();
 
     await _createAnswer();
@@ -209,6 +210,7 @@ class MatrixCall {
       RTCSessionDescription description =
           await _peerConnection.createAnswer(_constraints);
       _peerConnection.setLocalDescription(description);
+      print("sendanswer called!!!!!");
       _sendAnswer(description);
     } catch (e) {
       print('_createAnswer error!!!');
@@ -224,26 +226,30 @@ class MatrixCall {
   }
 
   _sendAnswer(RTCSessionDescription description) async {
-    await room.answerCall(
-      callId.toString(),
-      description.sdp,
-    );
+    await room
+        .answerCall(
+          callId.toString(),
+          description.sdp,
+        )
+        .then((value) => print("answer sent!!!!!!!!!!!"));
   }
 
-  _sendICECandidate(RTCIceCandidate cand) async {
-    Map<String, dynamic> currCandidate = {
-      'candidate': cand.candidate.toString(),
-      'sdpMlineIndex': cand.sdpMlineIndex,
-      'sdpMid': cand.sdpMid.toString(),
-    };
-    try {
+  _sendICECandidate([RTCIceCandidate cand]) async {
+    if (cand != null) {
+      Map<String, dynamic> currCandidate = {
+        'candidate': cand.candidate.toString(),
+        'sdpMlineIndex': cand.sdpMlineIndex,
+        'sdpMid': cand.sdpMid.toString(),
+      };
       if (!_queuedLocalCandidates.contains(currCandidate))
         _queuedLocalCandidates.add(currCandidate);
+    }
+    try {
       if (_queuedLocalCandidates.isNotEmpty) {
         await room.sendCallCandidates(callId, _queuedLocalCandidates);
+        _queuedLocalCandidates.clear();
       }
-      _queuedLocalCandidates.clear();
-    } catch (e) {
+    } on Exception catch (e) {
       print(e);
       if (_localCandidateSendTries > 5) {
         print(
@@ -255,7 +261,7 @@ class MatrixCall {
       ++_localCandidateSendTries;
       print("Failed to send candidates. Retrying in $delayMs ms");
       Timer(Duration(milliseconds: delayMs), () {
-        _sendICECandidate(cand);
+        _sendICECandidate();
       });
     }
   }

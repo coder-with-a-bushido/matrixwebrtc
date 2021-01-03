@@ -28,7 +28,6 @@ dependencies:
       url: https://gitlab.com/famedly/famedlysdk.git
   flutter_webrtc: ^0.4.0
   flutter_bloc: ^6.0.0
-  provider: ^4.3.2+3
   sdp_transform: ^0.2.0
 
 dev_dependencies:
