@@ -42,7 +42,6 @@ class _IncomingScreenState extends State<IncomingScreen> {
     });
     matrixCall.room = widget.room;
     matrixCall.setRemoteSDP = widget.remoteSDP;
-
     matrixCall.state.listen((state) {
       _checkState(state);
     });
@@ -71,10 +70,12 @@ class _IncomingScreenState extends State<IncomingScreen> {
   @override
   Widget build(BuildContext context) {
     if (isConnected)
-      return ConnectedCallScreen(
+      return Scaffold(
+          body: ConnectedCallScreen(
         matrixCall: matrixCall,
         context: context,
-      );
+        localRenderer: _localRenderer,
+      ));
     return Scaffold(
       body: Container(
         child: Stack(

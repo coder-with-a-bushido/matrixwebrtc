@@ -50,13 +50,14 @@ class _OutgoingScreenState extends State<OutgoingScreen> {
   }
 
   _checkState(PeerConnectionState state) {
-    if (state == PeerConnectionState.RTC_CONNECTION_PENDING) {
-      print("localrenderer set!!!!!!!!!!!!!");
-      if (mounted)
-        setState(() {
-          _localRenderer.srcObject = matrixCall.localStream;
-        });
-    } else if (state == PeerConnectionState.RTC_CONNECTION_CONNECTED) {
+    // if (state == PeerConnectionState.RTC_CONNECTION_PENDING) {
+    //   print("localrenderer set!!!!!!!!!!!!!");
+    //   if (mounted)
+    //     setState(() {
+    //       _localRenderer.srcObject = matrixCall.localStream;
+    //     });
+    // } else
+    if (state == PeerConnectionState.RTC_CONNECTION_CONNECTED) {
       if (mounted)
         setState(() {
           isConnected = true;
@@ -67,10 +68,12 @@ class _OutgoingScreenState extends State<OutgoingScreen> {
   @override
   Widget build(BuildContext context) {
     if (isConnected)
-      return ConnectedCallScreen(
+      return Scaffold(
+          body: ConnectedCallScreen(
         matrixCall: matrixCall,
         context: context,
-      );
+        localRenderer: _localRenderer,
+      ));
     return Scaffold(
       body: Container(
         child: Stack(

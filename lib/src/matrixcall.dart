@@ -26,19 +26,18 @@ class MatrixCall {
   }
 
   // MatrixPeerConnectionStateCallback _peerConnectionStateCallback;
-  PeerConnectionState _signalingState =
-      PeerConnectionState.RTC_CONNECTION_CLOSED;
+  PeerConnectionState _signalingState = PeerConnectionState.RTC_CONNECTION_NEW;
 
   Timer _dillingTimer;
   int _startConnectionTime;
   bool remoteDescriptionSet = false;
   final bool useCallingTimer;
   final _stateController = StreamController<PeerConnectionState>();
-
-  Stream<PeerConnectionState> get state =>
-      _stateController.stream.asBroadcastStream();
+  Stream<PeerConnectionState> get state => _stateController.stream;
+  final _remoteStreamController = StreamController<MediaStream>();
+  Stream<MediaStream> get remoteStream => _remoteStreamController.stream;
   MediaStream get localStream => _localMediaStream;
-  MediaStream get remoteStream => _remoteMediaStream;
+  // MediaStream get remoteStream => _remoteMediaStream;
 
   MatrixCall({this.useCallingTimer = true}) {
     onConnectionStateChanged(PeerConnectionState.RTC_CONNECTION_CLOSED);
@@ -92,29 +91,34 @@ class MatrixCall {
       _sendICECandidate(candidate);
     };
     pc.onIceConnectionState = (state) {
-      print(state);
+      print("$state onIceConnectionState.");
       if (RTCIceConnectionState.RTCIceConnectionStateChecking == state) {
         onConnectionStateChanged(PeerConnectionState.RTC_CONNECTION_CHECKING);
+
         _cancelCallingTimer();
-      } else if (RTCIceConnectionState.RTCIceConnectionStateConnected ==
-              state ||
+      }
+      if (RTCIceConnectionState.RTCIceConnectionStateConnected == state ||
           RTCIceConnectionState.RTCIceConnectionStateCompleted == state) {
         onConnectionStateChanged(PeerConnectionState.RTC_CONNECTION_CONNECTED);
-      } else if (RTCIceConnectionState.RTCIceConnectionStateDisconnected ==
-          state) {
+      }
+      if (RTCIceConnectionState.RTCIceConnectionStateDisconnected == state) {
         onConnectionStateChanged(
             PeerConnectionState.RTC_CONNECTION_DISCONNECTED);
-      } else if (RTCIceConnectionState.RTCIceConnectionStateFailed == state) {
+      }
+      if (RTCIceConnectionState.RTCIceConnectionStateFailed == state) {
         onConnectionStateChanged(PeerConnectionState.RTC_CONNECTION_FAILED);
-      } else if (RTCIceConnectionState.RTCIceConnectionStateClosed == state) {
+      }
+      if (RTCIceConnectionState.RTCIceConnectionStateClosed == state) {
         onConnectionStateChanged(PeerConnectionState.RTC_CONNECTION_CLOSED);
       }
     };
     pc.onAddStream = (stream) {
       _remoteMediaStream = stream;
+      _remoteStreamController.sink.add(stream);
     };
     pc.onRemoveStream = (stream) {
       _remoteMediaStream = null;
+      _remoteStreamController.sink.add(null);
     };
     pc.onSignalingState = (state) {
       print(state);
@@ -122,9 +126,9 @@ class MatrixCall {
     pc.onIceGatheringState = (state) {
       print(state);
     };
-    pc.onIceConnectionState = (state) {
-      print(state);
-    };
+    // pc.onIceConnectionState = (state) {
+    //   print(state);
+    // };
     return pc;
   }
 
@@ -288,6 +292,7 @@ class MatrixCall {
   void _close() {
     _cancelCallingTimer();
     _stateController.close();
+    _remoteStreamController.close();
     if (_localMediaStream != null) _localMediaStream.dispose();
     if (_remoteMediaStream != null) _remoteMediaStream.dispose();
     if (_peerConnection == null) return;
@@ -333,6 +338,7 @@ class MatrixCall {
   void onConnectionStateChanged(PeerConnectionState state) {
     _signalingState = state;
     _stateController.sink.add(state);
+    print("$state changed");
     // _peerConnectionStateCallback.onPeerConnectionStateChanged(_userId, state);
   }
 
