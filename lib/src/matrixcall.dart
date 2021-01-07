@@ -182,7 +182,7 @@ class MatrixCall {
 
     if (this._remoteCandidates.length > 0) {
       _remoteCandidates.forEach((candidate) async {
-        await _peerConnection.addCandidate(candidate);
+        if (candidate != null) await _peerConnection.addCandidate(candidate);
       });
       _remoteCandidates.clear();
     }
@@ -205,8 +205,11 @@ class MatrixCall {
   }
 
   _setRemoteDescription() async {
-    await _peerConnection.setRemoteDescription(_remoteSdp);
-    if (!remoteDescriptionSet) remoteDescriptionSet = true;
+    if (_remoteSdp.sdp != null &&
+        _signalingState != PeerConnectionState.RTC_CONNECTION_CONNECTED) {
+      await _peerConnection.setRemoteDescription(_remoteSdp);
+      if (!remoteDescriptionSet) remoteDescriptionSet = true;
+    }
   }
 
   _createAnswer() async {
@@ -283,9 +286,9 @@ class MatrixCall {
     }
   }
 
-  Future<void> _addCandidateFromList(RTCIceCandidate session) async {
+  Future<void> _addCandidateFromList(RTCIceCandidate candidate) async {
     await _peerConnection
-        .addCandidate(session)
+        .addCandidate(candidate)
         .then((value) => print('successfully added'));
   }
 

@@ -33,8 +33,10 @@ class _ConnectedCallScreenState extends State<ConnectedCallScreen> {
     //await _localRenderer.initialize();
     await _remoteRenderer.initialize();
     widget.matrixCall.remoteStream.listen((stream) {
-      print('remotestream changed.');
-      _remoteRenderer.srcObject = stream;
+      setState(() {
+        print('remotestream changed.');
+        _remoteRenderer.srcObject = stream;
+      });
     });
     // _localRenderer.srcObject = widget.matrixCall.localStream;
     // if (widget.matrixCall.hasRemoteSdp()) {
