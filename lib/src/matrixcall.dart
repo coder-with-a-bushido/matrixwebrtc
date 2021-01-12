@@ -303,6 +303,26 @@ class MatrixCall {
         ?.then((value) => print('successfully added'));
   }
 
+  void switchCamera() {
+    if (_localMediaStream != null) {
+      _localMediaStream.getVideoTracks()[0].switchCamera();
+    }
+  }
+
+  void muteMic() {
+    if (_localMediaStream != null) {
+      bool enabled = _localMediaStream.getAudioTracks()[0].enabled;
+      _localMediaStream.getAudioTracks()[0].enabled = !enabled;
+    }
+  }
+
+  void muteVideo() {
+    if (_localMediaStream != null) {
+      bool enabled = _localMediaStream.getVideoTracks()[0].enabled;
+      _localMediaStream.getVideoTracks()[0].enabled = !enabled;
+    }
+  }
+
   void _close() {
     _cancelTimers();
     _candidateTimer?.cancel();
@@ -335,7 +355,7 @@ class MatrixCall {
       } else {
         if (PeerConnectionState.RTC_CONNECTION_CONNECTING == _signalingState ||
             PeerConnectionState.RTC_CONNECTION_PENDING == _signalingState) {
-          _sendOffer(sessionDescription);
+           _sendOffer(sessionDescription);
         } else {
           timer?.cancel();
         }

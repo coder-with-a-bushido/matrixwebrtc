@@ -73,6 +73,8 @@ class _ConnectedCallScreenState extends State<ConnectedCallScreen> {
                   (_remoteRenderer != null && _remoteRenderer.srcObject != null)
                       ? RTCVideoView(
                           _remoteRenderer,
+                          objectFit:
+                              RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                         )
                       : Center(
                           child: Icon(Icons.supervised_user_circle),
@@ -88,6 +90,7 @@ class _ConnectedCallScreenState extends State<ConnectedCallScreen> {
             child: (_localRenderer != null && _localRenderer.srcObject != null)
                 ? RTCVideoView(
                     _localRenderer,
+                    objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                   )
                 : Center(
                     child: Icon(Icons.supervised_user_circle),
@@ -97,13 +100,40 @@ class _ConnectedCallScreenState extends State<ConnectedCallScreen> {
         Positioned(
           width: MediaQuery.of(context).size.width,
           bottom: 20,
-          child: IconButton(
-            icon: Icon(Icons.call_end),
-            color: Colors.red,
-            onPressed: () {
-              widget.matrixCall.hangUp();
-              context.read<CallstateBloc>().add(NoCall());
-            },
+          child: Center(
+            child: Container(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  FloatingActionButton(
+                    child: Icon(Icons.mic_off),
+                    onPressed: () => widget.matrixCall.muteMic(),
+                    backgroundColor: Colors.pink,
+                  ),
+                  SizedBox(
+                    width: 10,
+                  ),
+                  FloatingActionButton(
+                    child: Icon(Icons.flip_camera_ios),
+                    onPressed: () => widget.matrixCall.switchCamera(),
+                    backgroundColor: Colors.blue,
+                  ),
+                  SizedBox(
+                    width: 10,
+                  ),
+                  FloatingActionButton(
+                    child: Icon(
+                      Icons.call_end,
+                    ),
+                    backgroundColor: Colors.red,
+                    onPressed: () {
+                      widget.matrixCall.hangUp();
+                      context.read<CallstateBloc>().add(NoCall());
+                    },
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ]));

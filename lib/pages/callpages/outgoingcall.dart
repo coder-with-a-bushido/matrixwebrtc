@@ -96,6 +96,8 @@ class _OutgoingScreenState extends State<OutgoingScreen> {
                         _localRenderer?.srcObject != null)
                     ? RTCVideoView(
                         _localRenderer,
+                        objectFit:
+                            RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                       )
                     : Center(
                         child: Icon(Icons.supervised_user_circle),
@@ -105,9 +107,9 @@ class _OutgoingScreenState extends State<OutgoingScreen> {
             Positioned(
               width: MediaQuery.of(context).size.width,
               bottom: 20,
-              child: IconButton(
-                icon: Icon(Icons.call_end),
-                color: Colors.red,
+              child: FloatingActionButton(
+                child: Icon(Icons.call_end),
+                backgroundColor: Colors.red,
                 onPressed: () {
                   matrixCall.hangUp();
                   context.read<CallstateBloc>().add(NoCall());

@@ -99,6 +99,8 @@ class _IncomingScreenState extends State<IncomingScreen> {
                         _localRenderer?.srcObject != null)
                     ? RTCVideoView(
                         _localRenderer,
+                        objectFit:
+                            RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                       )
                     : Center(
                         child: Icon(Icons.supervised_user_circle),
@@ -111,16 +113,16 @@ class _IncomingScreenState extends State<IncomingScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  IconButton(
-                    icon: Icon(Icons.call),
-                    color: Colors.green,
+                  FloatingActionButton(
+                    child: Icon(Icons.call),
+                    backgroundColor: Colors.green,
                     onPressed: () async {
                       await matrixCall.answerCall();
                     },
                   ),
-                  IconButton(
-                    icon: Icon(Icons.call_end),
-                    color: Colors.red,
+                  FloatingActionButton(
+                    child: Icon(Icons.call_end),
+                    backgroundColor: Colors.red,
                     onPressed: () {
                       matrixCall.hangUp();
                       context.read<CallstateBloc>().add(NoCall());
