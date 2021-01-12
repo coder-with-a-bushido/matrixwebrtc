@@ -57,12 +57,18 @@ class _OutgoingScreenState extends State<OutgoingScreen> {
     //       _localRenderer.srcObject = matrixCall.localStream;
     //     });
     // } else
-    if (state == PeerConnectionState.RTC_CONNECTION_CONNECTED) {
+    if (state == PeerConnectionState.RTC_CONNECTION_CONNECTING) {
       if (mounted)
         setState(() {
           isConnected = true;
         });
-    } //else if(state==PeerConnectionState.RTC_CONNECTION_FAILED)
+    }
+    if (state == PeerConnectionState.RTC_CONNECTION_FAILED ||
+        state == PeerConnectionState.RTC_CONNECTION_CLOSED ||
+        state == PeerConnectionState.RTC_CONNECTION_TIMEOUT ||
+        state == PeerConnectionState.RTC_CONNECTION_DISCONNECTED) {
+      context.read<CallstateBloc>().add(NoCall());
+    }
   }
 
   @override
@@ -72,7 +78,6 @@ class _OutgoingScreenState extends State<OutgoingScreen> {
           body: ConnectedCallScreen(
         matrixCall: matrixCall,
         context: context,
-        localRenderer: _localRenderer,
       ));
     return Scaffold(
       body: Container(
@@ -87,11 +92,14 @@ class _OutgoingScreenState extends State<OutgoingScreen> {
                 margin: EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0),
                 width: MediaQuery.of(context).size.width,
                 height: MediaQuery.of(context).size.height,
-                child: _localRenderer.srcObject != null
+                child: (_localRenderer != null &&
+                        _localRenderer?.srcObject != null)
                     ? RTCVideoView(
                         _localRenderer,
                       )
-                    : Center(child: Text("NULL")),
+                    : Center(
+                        child: Icon(Icons.supervised_user_circle),
+                      ),
               ),
             ),
             Positioned(

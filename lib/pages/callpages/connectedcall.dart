@@ -1,6 +1,5 @@
 import 'package:example/bloc/callstate_bloc.dart';
 import 'package:example/src/matrixcall.dart';
-import 'package:famedlysdk/famedlysdk.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -8,14 +7,17 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 class ConnectedCallScreen extends StatefulWidget {
   final BuildContext context;
   final MatrixCall matrixCall;
-  final RTCVideoRenderer localRenderer;
-  ConnectedCallScreen({this.matrixCall, this.context, this.localRenderer});
+
+  ConnectedCallScreen({
+    this.matrixCall,
+    this.context,
+  });
   @override
   _ConnectedCallScreenState createState() => _ConnectedCallScreenState();
 }
 
 class _ConnectedCallScreenState extends State<ConnectedCallScreen> {
-  //RTCVideoRenderer _localRenderer = new RTCVideoRenderer();
+  RTCVideoRenderer _localRenderer = new RTCVideoRenderer();
   RTCVideoRenderer _remoteRenderer = new RTCVideoRenderer();
   @override
   void initState() {
@@ -30,8 +32,11 @@ class _ConnectedCallScreenState extends State<ConnectedCallScreen> {
   }
 
   initVideoRenderers() async {
-    //await _localRenderer.initialize();
+    await _localRenderer.initialize();
     await _remoteRenderer.initialize();
+    setState(() {
+      _localRenderer.srcObject = widget.matrixCall.localStream;
+    });
     widget.matrixCall.remoteStream.listen((stream) {
       setState(() {
         print('remotestream changed.');
@@ -46,7 +51,7 @@ class _ConnectedCallScreenState extends State<ConnectedCallScreen> {
   }
 
   disposeVideoRenderers() async {
-    if (widget.localRenderer != null) widget.localRenderer.dispose();
+    if (_localRenderer != null) _localRenderer.dispose();
     if (_remoteRenderer != null) _remoteRenderer.dispose();
   }
 
@@ -64,11 +69,14 @@ class _ConnectedCallScreenState extends State<ConnectedCallScreen> {
               margin: EdgeInsets.fromLTRB(0.0, 0.0, 0.0, 0.0),
               width: MediaQuery.of(context).size.width,
               height: MediaQuery.of(context).size.height,
-              child: _remoteRenderer.srcObject != null
-                  ? RTCVideoView(
-                      _remoteRenderer,
-                    )
-                  : Center(child: Text("NULL")),
+              child:
+                  (_remoteRenderer != null && _remoteRenderer.srcObject != null)
+                      ? RTCVideoView(
+                          _remoteRenderer,
+                        )
+                      : Center(
+                          child: Icon(Icons.supervised_user_circle),
+                        ),
               //decoration: BoxDecoration(color: Colors.black54),
             )),
         Positioned(
@@ -77,11 +85,13 @@ class _ConnectedCallScreenState extends State<ConnectedCallScreen> {
           child: Container(
             width: orientation == Orientation.portrait ? 90.0 : 120.0,
             height: orientation == Orientation.portrait ? 120.0 : 90.0,
-            child: widget.localRenderer.srcObject != null
+            child: (_localRenderer != null && _localRenderer.srcObject != null)
                 ? RTCVideoView(
-                    widget.localRenderer,
+                    _localRenderer,
                   )
-                : Center(child: Text("NULL")),
+                : Center(
+                    child: Icon(Icons.supervised_user_circle),
+                  ),
           ),
         ),
         Positioned(

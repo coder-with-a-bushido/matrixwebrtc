@@ -27,8 +27,9 @@ class MatrixCall {
 
   // MatrixPeerConnectionStateCallback _peerConnectionStateCallback;
   PeerConnectionState _signalingState = PeerConnectionState.RTC_CONNECTION_NEW;
-
-  Timer _dillingTimer;
+  bool _canSendCandidates = true;
+  Timer _candidateTimer;
+  Timer _diallingTimer;
   int _startConnectionTime;
   bool remoteDescriptionSet = false;
   final bool useCallingTimer;
@@ -36,11 +37,12 @@ class MatrixCall {
   Stream<PeerConnectionState> get state => _stateController.stream;
   final _remoteStreamController = StreamController<MediaStream>();
   Stream<MediaStream> get remoteStream => _remoteStreamController.stream;
+  //final _localStreamController = StreamController<MediaStream>();
   MediaStream get localStream => _localMediaStream;
   // MediaStream get remoteStream => _remoteMediaStream;
 
   MatrixCall({this.useCallingTimer = true}) {
-    onConnectionStateChanged(PeerConnectionState.RTC_CONNECTION_CLOSED);
+    // onConnectionStateChanged(PeerConnectionState.RTC_CONNECTION_CLOSED);
 
     TalkDevTestApp.client.onCallCandidates.stream.listen((event) {
       if (event.senderId != TalkDevTestApp.client.userID) {
@@ -71,31 +73,48 @@ class MatrixCall {
             event.content['answer']['type'].toString());
 
         _setRemoteDescription();
-        // onConnectionStateChanged(PeerConnectionState.RTC_CONNECTION_CONNECTING);
+        onConnectionStateChanged(PeerConnectionState.RTC_CONNECTION_CONNECTING);
       }
     });
     TalkDevTestApp.client.onCallHangup.stream.listen((event) {
-      _close();
       onConnectionStateChanged(PeerConnectionState.RTC_CONNECTION_CLOSED);
+      _close();
     });
   }
-  Future<void> initialize() async {
+  Future<void> initialize({bool incoming = false}) async {
     _peerConnection = await _createPeerConnection();
+    if (incoming) _startAnswerTimer();
   }
 
   Future<RTCPeerConnection> _createPeerConnection() async {
     RTCPeerConnection pc = await createPeerConnection(_iceServers, _config);
     _localMediaStream = await getUserMedia();
+    // _localStreamController.sink.add(_localMediaStream);
     pc.addStream(_localMediaStream);
-    pc.onIceCandidate = (candidate) {
-      _sendICECandidate(candidate);
+    pc.onIceCandidate = (cand) async {
+      if (cand != null) {
+        Map<String, dynamic> currCandidate = {
+          'candidate': cand.candidate.toString(),
+          'sdpMlineIndex': cand.sdpMlineIndex,
+          'sdpMid': cand.sdpMid.toString(),
+        };
+        if (!_queuedLocalCandidates.contains(currCandidate))
+          _queuedLocalCandidates.add(currCandidate);
+      }
+      if (_canSendCandidates && _localCandidateSendTries == 0) {
+        _sendICECandidates();
+        _canSendCandidates = false;
+        _candidateTimer = Timer(Duration(milliseconds: 500), () {
+          _canSendCandidates = true;
+        });
+      }
     };
     pc.onIceConnectionState = (state) {
       print("$state onIceConnectionState.");
       if (RTCIceConnectionState.RTCIceConnectionStateChecking == state) {
         onConnectionStateChanged(PeerConnectionState.RTC_CONNECTION_CHECKING);
 
-        _cancelCallingTimer();
+        _cancelTimers();
       }
       if (RTCIceConnectionState.RTCIceConnectionStateConnected == state ||
           RTCIceConnectionState.RTCIceConnectionStateCompleted == state) {
@@ -119,6 +138,7 @@ class MatrixCall {
     pc.onRemoveStream = (stream) {
       _remoteMediaStream = null;
       _remoteStreamController.sink.add(null);
+      //_localStreamController.sink.add(null);
     };
     pc.onSignalingState = (state) {
       print(state);
@@ -182,7 +202,7 @@ class MatrixCall {
 
     if (this._remoteCandidates.length > 0) {
       _remoteCandidates.forEach((candidate) async {
-        if (candidate != null) await _peerConnection.addCandidate(candidate);
+        if (candidate != null) await _peerConnection?.addCandidate(candidate);
       });
       _remoteCandidates.clear();
     }
@@ -241,22 +261,13 @@ class MatrixCall {
         .then((value) => print("answer sent!!!!!!!!!!!"));
   }
 
-  _sendICECandidate([RTCIceCandidate cand]) async {
-    if (cand != null) {
-      Map<String, dynamic> currCandidate = {
-        'candidate': cand.candidate.toString(),
-        'sdpMlineIndex': cand.sdpMlineIndex,
-        'sdpMid': cand.sdpMid.toString(),
-      };
-      if (!_queuedLocalCandidates.contains(currCandidate))
-        _queuedLocalCandidates.add(currCandidate);
-    }
+  _sendICECandidates() async {
     try {
       if (_queuedLocalCandidates.isNotEmpty) {
         await room.sendCallCandidates(callId, _queuedLocalCandidates);
         _queuedLocalCandidates.clear();
       }
-    } on Exception catch (e) {
+    } catch (e) {
       print(e);
       if (_localCandidateSendTries > 5) {
         print(
@@ -268,7 +279,7 @@ class MatrixCall {
       ++_localCandidateSendTries;
       print("Failed to send candidates. Retrying in $delayMs ms");
       Timer(Duration(milliseconds: delayMs), () {
-        _sendICECandidate();
+        _sendICECandidates();
       });
     }
   }
@@ -288,14 +299,16 @@ class MatrixCall {
 
   Future<void> _addCandidateFromList(RTCIceCandidate candidate) async {
     await _peerConnection
-        .addCandidate(candidate)
-        .then((value) => print('successfully added'));
+        ?.addCandidate(candidate)
+        ?.then((value) => print('successfully added'));
   }
 
   void _close() {
-    _cancelCallingTimer();
+    _cancelTimers();
+    _candidateTimer?.cancel();
     _stateController.close();
     _remoteStreamController.close();
+    //_localStreamController.close();
     if (_localMediaStream != null) _localMediaStream.dispose();
     if (_remoteMediaStream != null) _remoteMediaStream.dispose();
     if (_peerConnection == null) return;
@@ -314,20 +327,35 @@ class MatrixCall {
 
   void _startCallingTimer(RTCSessionDescription sessionDescription) {
     _startConnectionTime = DateTime.now().millisecondsSinceEpoch;
-    _dillingTimer = Timer.periodic(
+    _diallingTimer = Timer.periodic(
         Duration(seconds: RTCConfig.defaultDillingTimeInterval), (timer) {
       if (_isConnectionExpired()) {
         onConnectionStateChanged(PeerConnectionState.RTC_CONNECTION_TIMEOUT);
-        timer.cancel();
+        timer?.cancel();
       } else {
         if (PeerConnectionState.RTC_CONNECTION_CONNECTING == _signalingState ||
             PeerConnectionState.RTC_CONNECTION_PENDING == _signalingState) {
           _sendOffer(sessionDescription);
         } else {
-          timer.cancel();
+          timer?.cancel();
         }
       }
     });
+  }
+
+  void _startAnswerTimer() {
+    _startConnectionTime = DateTime.now().millisecondsSinceEpoch;
+    _diallingTimer = Timer.periodic(
+        Duration(seconds: RTCConfig.defaultDillingTimeInterval), (timer) {
+      if (_isConnectionExpired()) {
+        onConnectionStateChanged(PeerConnectionState.RTC_CONNECTION_TIMEOUT);
+        timer.cancel();
+      }
+    });
+  }
+
+  void _cancelTimers() {
+    if (_diallingTimer != null) _diallingTimer?.cancel();
   }
 
   bool _isConnectionExpired() {
@@ -340,13 +368,13 @@ class MatrixCall {
 
   void onConnectionStateChanged(PeerConnectionState state) {
     _signalingState = state;
-    _stateController.sink.add(state);
-    print("$state changed");
+    try {
+      _stateController.sink.add(state);
+      print("$state changed");
+    } catch (e) {
+      print(e);
+    }
     // _peerConnectionStateCallback.onPeerConnectionStateChanged(_userId, state);
-  }
-
-  void _cancelCallingTimer() {
-    if (_dillingTimer != null) _dillingTimer.cancel();
   }
 
   bool hasRemoteSdp() {
